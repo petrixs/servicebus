@@ -1,6 +1,7 @@
 package ServiceBus
 
 import (
+	"errors"
 	"github.com/streadway/amqp"
 )
 
@@ -13,7 +14,6 @@ type RabbitMQClient struct {
 }
 
 func NewRabbitMQClient(amqpURL, exchange, queue string) (*RabbitMQClient, error) {
-
 	// todo: check that exchange is not empty
 
 	conn, err := amqp.Dial(amqpURL)
@@ -22,8 +22,6 @@ func NewRabbitMQClient(amqpURL, exchange, queue string) (*RabbitMQClient, error)
 		return nil, err
 	}
 
-	defer conn.Close()
-
 	ch, err := conn.Channel()
 	if err != nil {
 		conn.Close()
@@ -31,75 +29,88 @@ func NewRabbitMQClient(amqpURL, exchange, queue string) (*RabbitMQClient, error)
 	}
 
 	//todo: Вынеси создание эксченжа, канала, очереди и привязки очереди к эксченжу в отдельные методы
-
-	if exchange != "" {
-
-		err := ch.ExchangeDeclare(
-			exchange,
-			"direct",
-			true,
-			false,
-			false,
-			false,
-			nil,
-		)
-
-		if err != nil {
-			ch.Close()
-			conn.Close()
-			return nil, err
-		}
-
-	}
-
-	if queue != "" {
-
-		_, err := ch.QueueDeclare(
-			queue,
-			true,
-			false,
-			false,
-			false,
-			nil,
-		)
-
-		if err != nil {
-			ch.Close()
-			conn.Close()
-			return nil, err
-		}
-
-	}
-
-	err = ch.QueueBind(
-		queue,
-		"",
-		exchange,
-		false,
-		nil,
-	)
-
-	if err != nil {
-		ch.Close()
-		conn.Close()
-		return nil, err
-	}
-
 	serializer := &JSONSerializer{}
 
-	return &RabbitMQClient{
+	client := &RabbitMQClient{
 		Connection: conn,
 		Channel:    ch,
 		Exchange:   exchange,
 		Queue:      queue,
 		Serializer: serializer,
-	}, nil
+	}
 
+	if err := client.createExchange(); err != nil {
+		client.closeChanelConnection()
+		return nil, err
+	}
+
+	if err := client.createQueue(); err != nil {
+		client.closeChanelConnection()
+		return nil, err
+	}
+
+	if err := client.bindQueueToExchange(); err != nil {
+		client.closeChanelConnection()
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func (client *RabbitMQClient) closeChanelConnection() {
+	client.Channel.Close()
+	client.Connection.Close()
+}
+
+func (client *RabbitMQClient) createExchange() error {
+	if client.Exchange != "" {
+		return client.Channel.ExchangeDeclare(
+			client.Exchange,
+			"direct",
+			true,
+			false,
+			false,
+			false,
+			nil)
+	}
+
+	return nil
+}
+
+func (client *RabbitMQClient) createQueue() error {
+	if client.Queue != "" {
+		_, err := client.Channel.QueueDeclare(
+			client.Queue,
+			true,
+			false,
+			false,
+			false,
+			nil)
+
+		return err
+	}
+	return nil
+}
+
+func (client *RabbitMQClient) bindQueueToExchange() error {
+	return client.Channel.QueueBind(
+		client.Queue,
+		"",
+		client.Exchange,
+		false,
+		nil)
 }
 
 func (client *RabbitMQClient) Send(message Message) error {
 
 	//todo: првоерь что у нас уже есть открытый канал и открытое соединение
+	if client.Connection == nil {
+		return errors.New("Connection exist")
+	}
+
+	if client.Channel == nil {
+		return errors.New("Channel exist")
+	}
 
 	body, err := client.Serializer.Marshal(message)
 
@@ -119,4 +130,16 @@ func (client *RabbitMQClient) Send(message Message) error {
 	)
 
 	return err
+}
+
+func (client *RabbitMQClient) Close() error {
+	if err := client.Channel.Close(); err != nil {
+		return err
+	}
+
+	if err := client.Connection.Close(); err != nil {
+		return err
+	}
+
+	return nil
 }
