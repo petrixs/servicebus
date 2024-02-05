@@ -22,6 +22,7 @@ func NewRabbitMQClient(amqpURL, exchange, queue string) (*RabbitMQClient, error)
 		return nil, err
 	}
 
+	//create channel
 	ch, err := conn.Channel()
 	if err != nil {
 		conn.Close()
@@ -103,7 +104,6 @@ func (client *RabbitMQClient) bindQueueToExchange() error {
 
 func (client *RabbitMQClient) Send(message Message) error {
 
-	//todo: првоерь что у нас уже есть открытый канал и открытое соединение
 	if client.Connection == nil {
 		return errors.New("Connection exist")
 	}
@@ -120,7 +120,7 @@ func (client *RabbitMQClient) Send(message Message) error {
 
 	err = client.Channel.Publish(
 		client.Exchange,
-		message.GetRoutingKey(),
+		"",
 		false,
 		false,
 		amqp.Publishing{
@@ -129,7 +129,11 @@ func (client *RabbitMQClient) Send(message Message) error {
 		},
 	)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (client *RabbitMQClient) Close() error {

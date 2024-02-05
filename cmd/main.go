@@ -7,12 +7,15 @@ import (
 
 func main() {
 	//Create RebbitMQ
-	rabbit, err := ServiceBus.NewRabbitMQClient("amqp://guest:guest@localhost:5672/", "test1", "q1")
+	rabbit, err := ServiceBus.NewRabbitMQClient(
+		"amqp://guest:guest@localhost:5672/",
+		"test1",
+		"q2")
 
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-	// Створіть тестове повідомлення
+
 	text := &ServiceBus.TestMessage{
 		Key:  "key",
 		Body: "body",
@@ -25,6 +28,4 @@ func main() {
 	}
 	log.Println("ok")
 
-	err = rabbit.Close()
-	log.Println("close")
 }

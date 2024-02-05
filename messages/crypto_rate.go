@@ -6,5 +6,6 @@ type CryptoCurrencyRate struct {
 }
 
 func (c CryptoCurrencyRate) GetRoutingKey() string {
+
 	return "crypto.rate"
 }
