@@ -1,7 +1,9 @@
 package ServiceBus
 
 import (
+	"github.com/petrixs/servicebus/messages"
 	"github.com/streadway/amqp"
+	"log"
 )
 
 type RabbitMQClient struct {
@@ -119,4 +121,55 @@ func (client *RabbitMQClient) Send(message Message) error {
 	)
 
 	return err
+}
+
+func (client *RabbitMQClient) Consume(handler func(data interface{})) error {
+
+	msgs, err := client.Channel.Consume(
+		client.Queue,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	if err != nil {
+		log.Fatalf("Failed register consumer: %s", err)
+	}
+
+	forever := make(chan bool)
+
+	go func() {
+
+		for d := range msgs {
+
+			var msg interface{}
+
+			switch d.RoutingKey {
+
+			case "crypto.rate":
+				msg := &messages.CryptoCurrencyRate{}
+			case "crypto.top":
+				msg := &messages.TopCryptoCurrencies{}
+			default:
+				log.Printf("Unknown message type: %s", d.RoutingKey)
+
+			}
+
+			if err := client.Serializer.Unmarshal(d.Body, &msg); err != nil {
+				log.Printf("Failed to decode message %s", err)
+			}
+
+			if err := handler(msg); err != nil {
+				log.Printf("Failed to handle message %s", err)
+			}
+
+		}
+
+	}()
+
+	<-forever
+
 }
