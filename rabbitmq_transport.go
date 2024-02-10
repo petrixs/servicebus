@@ -150,9 +150,9 @@ func (client *RabbitMQClient) Consume(handler func(data interface{})) error {
 			switch d.RoutingKey {
 
 			case "crypto.rate":
-				msg := &messages.CryptoCurrencyRate{}
+				msg = &messages.CryptoCurrencyRate{}
 			case "crypto.top":
-				msg := &messages.TopCryptoCurrencies{}
+				msg = &messages.TopCryptoCurrencies{}
 			default:
 				log.Printf("Unknown message type: %s", d.RoutingKey)
 
