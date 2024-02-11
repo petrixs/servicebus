@@ -123,7 +123,7 @@ func (client *RabbitMQClient) Send(message Message) error {
 	return err
 }
 
-func (client *RabbitMQClient) Consume(handler func(data interface{})) error {
+func (client *RabbitMQClient) Consume(handler func(data interface{}) error) {
 
 	msgs, err := client.Channel.Consume(
 		client.Queue,
